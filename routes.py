@@ -1,7 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from auth import (
+    USERNAME,
+    creer_token,
+    mot_de_passe_hash,
+    obtenir_utilisateur_connecte,
+    verifier_mot_de_passe,
+)
 from base_donnees import get_db
 from modeles import AlbumCreation, AlbumMiseAJour, AlbumSortie
 from tables import Album
@@ -12,6 +20,37 @@ router = APIRouter(
     tags=["Albums"],
 )
 
+auth_router = APIRouter(
+    tags=["Authentification"],
+)
+
+
+@auth_router.post("/connexion")
+def connexion(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+):
+    if form_data.username != USERNAME:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Identifiants incorrects",
+        )
+
+    if not verifier_mot_de_passe(
+        form_data.password,
+        mot_de_passe_hash,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Identifiants incorrects",
+        )
+
+    token = creer_token(form_data.username)
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+    }
+
 
 @router.post(
     "",
@@ -21,6 +60,7 @@ router = APIRouter(
 def creer_album(
     donnees: AlbumCreation,
     db: Session = Depends(get_db),
+    utilisateur: str = Depends(obtenir_utilisateur_connecte),
 ):
     album = Album(
         titre=donnees.titre,
@@ -79,6 +119,7 @@ def modifier_album(
     album_id: int,
     donnees: AlbumMiseAJour,
     db: Session = Depends(get_db),
+    utilisateur: str = Depends(obtenir_utilisateur_connecte),
 ):
     album = db.get(Album, album_id)
 
@@ -111,6 +152,7 @@ def modifier_album(
 def supprimer_album(
     album_id: int,
     db: Session = Depends(get_db),
+    utilisateur: str = Depends(obtenir_utilisateur_connecte),
 ):
     album = db.get(Album, album_id)
 
