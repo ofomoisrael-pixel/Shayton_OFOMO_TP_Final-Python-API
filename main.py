@@ -1,11 +1,18 @@
 from fastapi import FastAPI
 
 from base_donnees import Base, engine
-from tables import Album
+from routes import router
+
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="API Médiathèque - Albums")
+app = FastAPI(
+    title="API Médiathèque - Albums",
+    version="1.0.0",
+)
+
+
+app.include_router(router)
 
 
 @app.get("/")
